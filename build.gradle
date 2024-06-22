@@ -1,0 +1,73 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '7.1.0'
+}
+
+group = 'com.valkeon'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'papermc-repo'
+        url = 'https://repo.papermc.io/repository/maven-public/'
+    }
+    maven {
+        name = 'sonatype'
+        url = 'https://oss.sonatype.org/content/groups/public/'
+    }
+}
+
+dependencies {
+    implementation 'org.mongodb:mongodb-driver-sync:5.1.0'
+    compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
+}
+
+def targetJavaVersion = 17
+java {
+    sourceCompatibility = targetJavaVersion
+    targetCompatibility = targetJavaVersion
+    if (JavaVersion.current() < JavaVersion.toVersion(targetJavaVersion)) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        options.release = targetJavaVersion
+    }
+}
+
+processResources {
+    def props = [version: version]
+    inputs.properties props
+    filteringCharset 'UTF-8'
+    filesMatching('plugin.yml') {
+        expand props
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.runtimeClasspath] // Change from 'implementation' to 'runtimeClasspath'
+    relocate 'org.bson', 'com.valkeon.vmongodb.shaded.org.bson'
+    relocate 'com.mongodb', 'com.valkeon.vmongodb.shaded.com.mongodb'
+    archiveFileName = "${project.name}.jar"
+}
+
+tasks.build.dependsOn tasks.shadowJar
+
+task deployToLocal(type: Copy) {
+    from shadowJar.archiveFile
+    into 'C:/Users/deyvi/Desktop/arkhary-dev-server/plugins'
+
+    doFirst {
+        logger.lifecycle("Deploying ${shadowJar.archiveFileName.get()} to local server...")
+    }
+
+    doLast {
+        logger.lifecycle("Deployment complete.")
+    }
+}
+
+tasks.build.finalizedBy(deployToLocal)
+
